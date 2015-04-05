@@ -69,7 +69,7 @@ public class OBJWindow : EditorWindow
 		meshFilters.AddRange(root.GetComponentsInChildren<MeshFilter>());
 
 		Mesh mesh;
-		if (meshFilters.Count > 1) {
+		if (meshFilters.Count > 0) {
 			CombineInstance[] combine = new CombineInstance[meshFilters.Count];
 			for (int i = 0; i < meshFilters.Count; ++i) {
 				combine[i].mesh = meshFilters[i].sharedMesh;
@@ -79,8 +79,7 @@ public class OBJWindow : EditorWindow
 			mesh = new Mesh();
 			mesh.CombineMeshes(combine);
 			mesh.Optimize();
-		} else if (meshFilters.Count > 0) {
-			mesh = meshFilters[0].sharedMesh;
+			mesh.name = root.name;
 		} else {
 			return;
 		}
