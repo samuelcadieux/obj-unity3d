@@ -10,59 +10,91 @@ using UnityExtension;
 public class OBJWindow : EditorWindow
 {
 	//------------------------------------------------------------------------------------------------------------
-	private GameObject m_root = null;
+	private Transform m_root = null;
 
 	//------------------------------------------------------------------------------------------------------------
-	[MenuItem("OBJ-IO/OBJ Mesh Exporter")]
+	[MenuItem("Window/OBJ-IO Mesh Exporter")]
 	public static void Execute()
 	{
 		OBJWindow.GetWindow<OBJWindow>();
 	}
 
+	[MenuItem("CONTEXT/Transform/OBJ-IO Export Mesh")]
+	public static void ExportTransform(MenuCommand command)
+	{
+		var selection = command.context as Transform;
+		ExportMesh(selection);
+	}
+
+	[MenuItem("CONTEXT/Transform/OBJ-IO Export Mesh", true)]
+	public static bool CheckTransformExport(MenuCommand command)
+	{
+		var selection = command.context as Transform;
+		if (selection == null) 
+		{
+			return false;
+		}
+
+		return selection.GetComponent<MeshFilter>() != null || selection.GetComponentInChildren<MeshFilter>() != null;
+	}
+
+	[MenuItem("CONTEXT/MeshFilter/OBJ-IO Export Mesh")]
+	public static void ExportMeshFilter(MenuCommand command)
+	{
+		var selection = command.context as MeshFilter;
+		ExportMesh(selection.transform);
+	}
+
+
 	//------------------------------------------------------------------------------------------------------------
 	private void OnGUI()
 	{
-		m_root = (GameObject)EditorGUILayout.ObjectField("Root", m_root, typeof(GameObject), true);
+		m_root = (Transform)EditorGUILayout.ObjectField("Root", m_root, typeof(Transform), true);
 
-		if (m_root != null)
+		if (m_root == null)
 		{
-			var meshFilters = new List<MeshFilter>();
-			meshFilters.AddRange(m_root.GetComponents<MeshFilter>());
-			meshFilters.AddRange(m_root.GetComponentsInChildren<MeshFilter>());
-
-			Mesh mesh;
-			if (meshFilters.Count > 0) {
-				CombineInstance[] combine = new CombineInstance[meshFilters.Count];
-				for (int i = 0; i < meshFilters.Count; ++i) {
-					combine[i].mesh = meshFilters[i].sharedMesh;
-					combine[i].transform = meshFilters[i].transform.localToWorldMatrix;
-				}
-
-				mesh = new Mesh();
-				mesh.CombineMeshes(combine);
-				mesh.Optimize();
-			} else {
-				mesh = meshFilters[0].sharedMesh;
-			}
-
-			if (GUILayout.Button("Export OBJ"))
-			{
-				var lOutputPath = EditorUtility.SaveFilePanel("Save Mesh as OBJ", "", m_root.name + ".obj", "obj");
-
-				if (File.Exists(lOutputPath))
-				{
-					File.Delete(lOutputPath);
-				}
-
-				var lStream = new FileStream(lOutputPath, FileMode.Create);
-				var lOBJData = mesh.EncodeOBJ();
-				OBJLoader.ExportOBJ(lOBJData, lStream);
-				lStream.Close();
-			}
+			GUILayout.Label("Please provide a Transform  which contains (including it's children)  at least on or more MeshFilter component");
+			return;
 		}
-		else
+
+		if (GUILayout.Button("Export OBJ"))
 		{
-			GUILayout.Label("Please provide a GameObject which contains (including it's children)  at least on or more MeshFilter component");
+			ExportMesh(m_root);
 		}
 	}
+
+	private static void ExportMesh(Transform root) {
+		var meshFilters = new List<MeshFilter>();
+		meshFilters.AddRange(root.GetComponents<MeshFilter>());
+		meshFilters.AddRange(root.GetComponentsInChildren<MeshFilter>());
+
+		Mesh mesh;
+		if (meshFilters.Count > 1) {
+			CombineInstance[] combine = new CombineInstance[meshFilters.Count];
+			for (int i = 0; i < meshFilters.Count; ++i) {
+				combine[i].mesh = meshFilters[i].sharedMesh;
+				combine[i].transform = meshFilters[i].transform.localToWorldMatrix;
+			}
+
+			mesh = new Mesh();
+			mesh.CombineMeshes(combine);
+			mesh.Optimize();
+		} else if (meshFilters.Count > 0) {
+			mesh = meshFilters[0].sharedMesh;
+		} else {
+			return;
+		}
+
+		var lOutputPath = EditorUtility.SaveFilePanel("Save Mesh as OBJ", "", root.name + ".obj", "obj");
+
+		if (File.Exists(lOutputPath))
+		{
+			File.Delete(lOutputPath);
+		}
+
+		var lStream = new FileStream(lOutputPath, FileMode.Create);
+		var lOBJData = mesh.EncodeOBJ();
+		OBJLoader.ExportOBJ(lOBJData, lStream);
+		lStream.Close();
+}
 }
